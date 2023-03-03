@@ -1,0 +1,50 @@
+---
+
+- hosts: all
+  become: true
+  pre_tasks:
+    - name: install updates (Ubuntu)
+      apt:
+        upgrade: dist
+        update_cache: yes
+      when: ansible_distribution == "Ubuntu"
+
+    - name: create user
+      tags: always
+      user:
+        name: aendraes
+        groups: root
+
+    - name: create ssh-key
+      tags: always
+      authorized_key:
+        user: aendraes
+        key: "{{ lookup('file', '/home/andreas/.ssh/id_ed25519.pub') }}"
+    - name: add sudoers file
+      tags: always
+      copy:
+        src: sudoer_aendraes
+        dest: /etc/sudoers.d/aendraes
+        owner: root
+        group: root
+        mode: 0440
+    - name: create ftp_server user
+      tags: always
+      user:
+        name: ftp_base
+        password: Andreas123
+    - name: change config files for ftp
+      tags: config
+      lineinfile:
+        regexp: '^anonymous_enable'
+        line: anonymous_enable=YES
+    - name: set local_enable
+      tags: config
+      lineinfile:
+        regexp: '^local_enable'
+        line: local_enable=YES
+    - name: change config files for ftp
+      tags: config
+      lineinfile:
+        regexp: '^#write_enable'
+        line: write_enable=YES

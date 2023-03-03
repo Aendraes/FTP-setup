@@ -1,0 +1,81 @@
+---
+
+- hosts: ftp_servers
+  become: true
+  tasks:
+    - name: Update cache
+      apt:
+        update_cache: yes
+    - name: Download vsftpd
+      apt:
+        name:
+        - vsftpd
+        - ufw
+        - ftp
+        state: latest
+    - name: Set vsftpd to enabled
+      service:
+        name: vsftpd
+        enabled: yes
+        state: started
+
+    # Even more config
+    - name: create ftp directory
+      file:
+        path: home/ftp_base/ftp
+        state: directory
+        mode: 420
+      lineinfile:
+        path: /etc/vsftpd.conf
+        regexp: 
+    - name: change config files for ftp
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        regexp: '^anonymous_enable'
+        line: anonymous_enable=YES
+      register: vsftpd
+    - name: set local_enable
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        regexp: '^local_enable'
+        line: local_enable=YES
+      register: vsftpd
+
+    - name: change config files for ftp
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        regexp: '^#write_enable'
+        line: write_enable=YES
+      register: vsftpd
+    - name: config service_name
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        regexp: '^pam_service_name'
+        line: pam_service_name=ftp
+
+
+# Open ports in firewall
+    - name: allow openssh ssh and vsftpd
+      tags: config ports
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: allow ftp-traffic on ports 20-23
+      tags: config ports
+      ufw:
+        rule: allow
+        port: 20:23
+        proto: tcp
+      
+# Enable ufw service
+    - name: Start and enable ufw service
+      tags: service
+      service:
+        name: ufw
+        enabled: yes
+        state: started
