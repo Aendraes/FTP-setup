@@ -2,7 +2,7 @@
 
 - hosts: ftp_servers
   become: true
-  tasks:
+  pre_tasks:
     - name: Update cache
       apt:
         update_cache: yes
@@ -24,10 +24,9 @@
       file:
         path: home/ftp_base/ftp
         state: directory
-        mode: 420
-      lineinfile:
-        path: /etc/vsftpd.conf
-        regexp: 
+        owner: 65534
+        group: 65534
+
     - name: change config files for ftp
       tags: config
       lineinfile:
@@ -50,13 +49,46 @@
         regexp: '^#write_enable'
         line: write_enable=YES
       register: vsftpd
-    - name: config service_name
-      tags: config
+
+    - name: servicename
+      tags: config 
       lineinfile:
         path: /etc/vsftpd.conf
         regexp: '^pam_service_name'
         line: pam_service_name=ftp
 
+    - name: fas
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        line: allow_writeable_chroot=YES
+    - name: pasv
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        line: pasv_enable=Yes
+    - name: port1
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        line: pasv_max_port=40000
+    - name: port2
+      tags: config
+      lineinfile:
+        path: /etc/vsftpd.conf
+        line: pasv_max_port=40100
+    - name: fix ftpusers
+      tags: config
+      lineinfile:
+        path: /etc/ftpusers
+        regexp: '^root'
+        line: "#root"
+    - name: fix ftpusers
+      tags: config
+      lineinfile:
+        path: /etc/ftpusers
+        regexp: '^nobody'
+        line: "#nobody"
 
 # Open ports in firewall
     - name: allow openssh ssh and vsftpd
@@ -71,6 +103,12 @@
         rule: allow
         port: 20:23
         proto: tcp
+    - name: allow ftp-traffic on ports 40000:40100
+      tags: config ports
+      ufw:
+        rule: allow
+        port: 40000:40100
+        proto: tcp
       
 # Enable ufw service
     - name: Start and enable ufw service
@@ -79,3 +117,10 @@
         name: ufw
         enabled: yes
         state: started
+
+  tasks:
+  - name: restart vsftod
+    service:
+      name: vsftpd
+      enabled: yes
+      state: restarted
